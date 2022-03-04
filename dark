@@ -14,7 +14,9 @@ def nudo(command):
     :param command: valid bash command
     :return: string output
     """
-    output = popen(f'{command}').read()
+    pipe = popen(f'{command}')
+    output = pipe.read()
+    pipe.close()
     return output[:-1]  # Return everying except the last char
 
 
