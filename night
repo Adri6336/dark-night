@@ -7,5 +7,5 @@ redshift -O 4900 > /dev/null 2>&1
 redshift -O 4900 > /dev/null 2>&1
 redshift -O 4900 > /dev/null 2>&1
 redshift -O 4900 > /dev/null 2>&1
-sudo dark -c-50
+dark -c-50
 
