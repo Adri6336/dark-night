@@ -1,50 +1,30 @@
 #!/bin/python3
-from os import system as sys
 from os import geteuid as usertype
+from os import popen
 from sys import exit
 import click
 
 # ============ Functions
 
-def getNonRoot():
+def nudo(command):
     """
-    This function determines the name of a non root user
-
-    :return: String name
+    This performs a command as a normal user and
+    returns the output as a string.
+    
+    :param command: valid bash command
+    :return: string output
     """
-
-    # 1. Get the name of a normal user
-    sys('sudo cat /etc/passwd | grep 1000 > normal')
-    sys('sudo chmod 755 normal')
-
-    with open('normal', 'r') as file:
-        name = file.read().split(':')
-
-    sys('sudo rm normal')
-
-    return name[0]
+    output = popen(f'{command}').read()
+    return output[:-1]  # Return everying except the last char
 
 
 # ============ Main Function
 @click.command()
 @click.option('-c', '--change', 'change', default=-20 , help='This specifies the brightness change')
 def start(change):
-    # 0. Must be root and know who nonroot is
-    if not usertype() == 0:
-        print('[X] Must run as root')
-        exit(1)
-        
-    nonroot = getNonRoot()
-
     # 1. Get info
     # The below use of sudo -u allows me to decrease privs temporarily
-    sys(f'sudo -u {nonroot} pkexec mate-power-backlight-helper --get-brightness > screentp')
-    sys('sudo chmod 755 screentp')
-
-    with open('screentp', 'r') as file:
-        bright = file.read().split('\n')[0]
-        sys('sudo rm screentp')
-
+    bright = nudo(f'pkexec mate-power-backlight-helper --get-brightness')
 
     try:
         bright = int(bright)
@@ -67,15 +47,15 @@ def start(change):
     diff = int(bright + (bright * changeby))
 
     
-    if diff > 120000:  # If the total change is more than 100
-        new_bright = 120000  # Maximize brightness
-    elif diff < 1000:  
-        new_bright = 1000  # Minimize brightness, but dont turn off
-    else:
-        new_bright = diff
+    if diff > 120000:  # If the total change is more than max
+        new_bright = 120000  # Set brightness to max
+    elif diff < 1000:  # If change makes it effectively off
+        new_bright = 1000  # Minimize brightness, but dont turn off (still visible)
+    else:  # Otherwise, if it's not a total change
+        new_bright = diff  # Just implement it
         
     # 3. Apply change
-    sys(f'sudo -u {nonroot} pkexec mate-power-backlight-helper --set-brightness {new_bright}')
+    nudo(f'pkexec mate-power-backlight-helper --set-brightness {new_bright}')
     exit(0)
 
 # ============ START
