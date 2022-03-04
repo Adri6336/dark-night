@@ -1,0 +1,83 @@
+#!/bin/python3
+from os import system as sys
+from os import geteuid as usertype
+from sys import exit
+import click
+
+# ============ Functions
+
+def getNonRoot():
+    """
+    This function determines the name of a non root user
+
+    :return: String name
+    """
+
+    # 1. Get the name of a normal user
+    sys('sudo cat /etc/passwd | grep 1000 > normal')
+    sys('sudo chmod 755 normal')
+
+    with open('normal', 'r') as file:
+        name = file.read().split(':')
+
+    sys('sudo rm normal')
+
+    return name[0]
+
+
+# ============ Main Function
+@click.command()
+@click.option('-c', '--change', 'change', default=-20 , help='This specifies the brightness change')
+def start(change):
+    # 0. Must be root and know who nonroot is
+    if not usertype() == 0:
+        print('[X] Must run as root')
+        exit(1)
+        
+    nonroot = getNonRoot()
+
+    # 1. Get info
+    # The below use of sudo -u allows me to decrease privs temporarily
+    sys(f'sudo -u {nonroot} pkexec mate-power-backlight-helper --get-brightness > screentp')
+    sys('sudo chmod 755 screentp')
+
+    with open('screentp', 'r') as file:
+        bright = file.read().split('\n')[0]
+        sys('sudo rm screentp')
+
+
+    try:
+        bright = int(bright)
+    except Exception as e:
+        print(f'Error: {str(e)}')
+        exit(1)
+
+    # 2. Act on info
+
+    # 2.1 Figure out how much to change 
+    if 'int' in str(type(change)):
+        changeby = change / 100
+    elif 'float' in str(type(change)):
+        changeby = change  # Make no changes
+    else:
+        changeby = change / 100
+        print(f'ERROR: TYPE = {str(type(change))}')
+
+    # 2.2 Determine if change is viable
+    diff = int(bright + (bright * changeby))
+
+    
+    if diff > 120000:  # If the total change is more than 100
+        new_bright = 120000  # Maximize brightness
+    elif diff < 1000:  
+        new_bright = 1000  # Minimize brightness, but dont turn off
+    else:
+        new_bright = diff
+        
+    # 3. Apply change
+    sys(f'sudo -u {nonroot} pkexec mate-power-backlight-helper --set-brightness {new_bright}')
+    exit(0)
+
+# ============ START
+if __name__ == '__main__':
+    start()
